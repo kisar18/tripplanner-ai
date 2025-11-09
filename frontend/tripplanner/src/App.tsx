@@ -1,23 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import './App.css';
-import { Box } from '@mui/material';
-
-interface Trip {
-  id: number;
-  city: string;
-  days: number;
-  itinerary: Record<string, string>;
-}
+import React, { useEffect, useState } from "react";
+import { Box, Typography, Snackbar, Alert } from "@mui/material";
+import "./App.css";
+import { Trip } from "./types";
+import TripForm from "./components/TripForm";
+import TripTable from "./components/TripTable";
+import TripDetail from "./components/TripDetail";
+import ConfirmDialog from "./components/ConfirmDialog";
 
 function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [city, setCity] = useState('');
-  const [days, setDays] = useState<number>(1);
-  const [itinerary, setItinerary] = useState('');
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [deleteSnackbarOpen, setDeleteSnackbarOpen] = useState(false);
 
-  // Načtení existujících výletů
   const fetchTrips = () => {
-    fetch('http://127.0.0.1:8000/trips')
+    fetch("http://127.0.0.1:8000/trips")
       .then((res) => res.json())
       .then((data) => setTrips(data))
       .catch((err) => console.error(err));
@@ -27,114 +26,71 @@ function App() {
     fetchTrips();
   }, []);
 
-  // Odeslání nového výletu
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSaved = () => {
+    fetchTrips();
+    setSnackbarOpen(true);
+  };
 
-    // převod itineráře z textového vstupu do JSON objektu
-    const itineraryObj = Object.fromEntries(
-      itinerary.split(',').map((pair) => {
-        const [key, value] = pair.split(':').map((s) => s.trim());
-        return [key, value];
-      })
-    );
+  const openDeleteConfirm = (id: number) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
 
+  const handleDeleteConfirmed = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      const response = await fetch('http://127.0.0.1:8000/save_trip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          city: city,
-          days: days,
-          itinerary: itineraryObj,
-        }),
-      });
-
-      if (response.ok) {
-        console.log('Trip saved!');
-        setCity('');
-        setDays(1);
-        setItinerary('');
+      const res = await fetch(`http://127.0.0.1:8000/trips/${pendingDeleteId}`, { method: "DELETE" });
+      if (res.ok) {
         fetchTrips();
+        if (selectedTrip?.id === pendingDeleteId) setSelectedTrip(null);
+        setDeleteSnackbarOpen(true);
       } else {
-        console.error('Chyba při ukládání výletu:', await response.text());
+        console.error("Delete failed:", await res.text());
       }
-    } catch (error) {
-      console.error('Network chyba:', error);
+    } catch (err) {
+      console.error("Network error (delete):", err);
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
+  const formatItinerary = (it: string) => it;
+
+  if (selectedTrip) {
+    return <TripDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
+  }
+
   return (
-    <div className="App">
-      <h1>Seznam výletů</h1>
+    <Box sx={{ p: 4 }}>
+      <Typography variant="h4" align="center" gutterBottom>
+        🧳 Planned Trips
+      </Typography>
 
-      <form onSubmit={handleSubmit} style={{ marginBottom: '2rem' }}>
-        <div>
-          <label>Město: </label>
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            required
-            />
-        </div>
+      <TripForm onSaved={onSaved} />
 
-        <div>
-          <label>Počet dní: </label>
-          <input
-            type="number"
-            min="1"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            required
-            />
-        </div>
+      <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatItinerary={formatItinerary} />
 
-        <div>
-          <label>Itinerář (např. day1: ZOO, day2: Park): </label>
-          <input
-            type="text"
-            value={itinerary}
-            onChange={(e) => setItinerary(e.target.value)}
-            required
-            style={{ width: '400px' }}
-            />
-        </div>
+      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
+        <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
+          Trip Saved!
+        </Alert>
+      </Snackbar>
 
-        <button type="submit">Uložit výlet</button>
-      </form>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Confirm delete"
+        content="Are you sure you want to delete this trip? This action cannot be undone."
+        onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        onConfirm={handleDeleteConfirmed}
+      />
 
-      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-        <table border={1} cellPadding={10}>
-          <tr>
-            <th>
-              <strong>Město</strong>
-            </th>
-            <th>
-              <strong>Počet dnů</strong>
-            </th>
-            <th>
-              <strong>Itenerář</strong>
-            </th>
-          </tr>
-          {trips.map((trip) => (
-            <tr key={trip.id}>
-              <td>{trip.city} </td>
-              <td>{trip.days}</td>
-              <td>
-                <ul>
-                  {Object.entries(trip.itinerary).map(([day, plan]) => (
-                    <li key={day}>
-                      {day}: {plan}
-                    </li>
-                  ))}
-                </ul>
-              </td>
-            </tr>
-          ))}
-        </table>
-      </Box>
-    </div>
+      <Snackbar open={deleteSnackbarOpen} autoHideDuration={3000} onClose={() => setDeleteSnackbarOpen(false)}>
+        <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
+          Trip deleted
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }
 
