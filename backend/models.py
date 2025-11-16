@@ -7,5 +7,5 @@ trips = Table(
     Column("id", Integer, primary_key=True),
     Column("city", String),
     Column("days", Integer),
-    Column("itinerary", String),
+    Column("description", String),
 )

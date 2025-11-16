@@ -8,7 +8,7 @@ interface Props {
 export default function TripForm({ onSaved }: Props) {
   const [city, setCity] = useState("");
   const [days, setDays] = useState<number>(1);
-  const [itinerary, setItinerary] = useState("");
+  const [description, setDescription] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,13 +16,13 @@ export default function TripForm({ onSaved }: Props) {
       const response = await fetch("http://127.0.0.1:8000/save_trip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city, days, itinerary }),
+        body: JSON.stringify({ city, days, description }),
       });
 
       if (response.ok) {
         setCity("");
         setDays(1);
-        setItinerary("");
+        setDescription("");
         onSaved();
       } else {
         console.error("Error while saving the new trip:", await response.text());
@@ -54,7 +54,7 @@ export default function TripForm({ onSaved }: Props) {
             required
           />
 
-          <TextField label="Itinerary" fullWidth value={itinerary} onChange={(e) => setItinerary(e.target.value)} required />
+          <TextField label="Description" fullWidth value={description} onChange={(e) => setDescription(e.target.value)} required />
 
           <Button type="submit" variant="contained" color="primary" fullWidth>
             Save Trip

@@ -55,7 +55,7 @@ function App() {
     }
   };
 
-  const formatItinerary = (it: string) => it;
+  const formatDescription = (desc: string) => desc;
 
   if (selectedTrip) {
     return <TripDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
@@ -69,7 +69,7 @@ function App() {
 
       <TripForm onSaved={onSaved} />
 
-      <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatItinerary={formatItinerary} />
+      <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatDescription={formatDescription} />
 
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
         <Alert severity="success" variant="filled" sx={{ width: "100%" }}>

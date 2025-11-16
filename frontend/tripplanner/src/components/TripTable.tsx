@@ -6,11 +6,11 @@ interface Props {
   trips: Trip[];
   onSelect: (t: Trip) => void;
   onRequestDelete: (id: number) => void;
-  formatItinerary?: (it: string) => string;
+  formatDescription?: (desc: string) => string;
 }
 
-export default function TripTable({ trips, onSelect, onRequestDelete, formatItinerary }: Props) {
-  const fmt = formatItinerary ?? ((it: string) => it);
+export default function TripTable({ trips, onSelect, onRequestDelete, formatDescription }: Props) {
+  const fmt = formatDescription ?? ((desc: string) => desc);
 
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 900, mx: "auto", borderRadius: "1rem" }}>
@@ -19,7 +19,7 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatItin
           <TableRow>
             <TableCell><strong>City</strong></TableCell>
             <TableCell><strong>Number of Days</strong></TableCell>
-            <TableCell><strong>Itinerary</strong></TableCell>
+            <TableCell><strong>Description</strong></TableCell>
             <TableCell><strong>Actions</strong></TableCell>
           </TableRow>
         </TableHead>
@@ -28,7 +28,7 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatItin
             <TableRow key={trip.id} hover onClick={() => onSelect(trip)} sx={{ cursor: "pointer" }}>
               <TableCell>{trip.city}</TableCell>
               <TableCell>{trip.days}</TableCell>
-              <TableCell>{fmt(trip.itinerary)}</TableCell>
+              <TableCell>{fmt(trip.description)}</TableCell>
               <TableCell>
                 <Button
                   variant="outlined"
