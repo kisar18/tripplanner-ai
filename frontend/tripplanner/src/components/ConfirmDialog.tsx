@@ -1,5 +1,7 @@
 import React from "react";
 import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from "@mui/material";
+import { useLanguage } from "../language/LanguageContext";
+import { t } from "../language/i18n";
 
 interface Props {
   open: boolean;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function ConfirmDialog({ open, title = "Confirm", content = "Are you sure?", onCancel, onConfirm }: Props) {
+  const { lang } = useLanguage();
   return (
     <Dialog open={open} onClose={onCancel} aria-labelledby="confirm-dialog-title">
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
@@ -17,9 +20,9 @@ export default function ConfirmDialog({ open, title = "Confirm", content = "Are 
         <DialogContentText>{content}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel}>{t(lang,'cancel')}</Button>
         <Button color="error" onClick={onConfirm} autoFocus>
-          Delete
+          {t(lang,'delete')}
         </Button>
       </DialogActions>
     </Dialog>

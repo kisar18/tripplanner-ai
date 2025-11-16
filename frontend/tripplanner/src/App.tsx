@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Snackbar, Alert } from "@mui/material";
+import { Box, Typography, Snackbar, Alert, AppBar, Toolbar } from "@mui/material";
+import ThemeToggle from "./components/ThemeToggle";
+import LanguageSwitcher from "./components/LanguageSwitcher";
+import { useLanguage } from "./language/LanguageContext";
+import { t } from "./language/i18n";
 import "./App.css";
 import { Trip } from "./types";
 import TripForm from "./components/TripForm";
@@ -8,6 +12,7 @@ import TripDetail from "./components/TripDetail";
 import ConfirmDialog from "./components/ConfirmDialog";
 
 function App() {
+  const { lang } = useLanguage();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -62,35 +67,46 @@ function App() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" align="center" gutterBottom>
-        🧳 Planned Trips
-      </Typography>
+    <>
+      <AppBar position="sticky" color="default" elevation={2} sx={{ mb: 3, borderRadius: '0 0 1rem 1rem', boxShadow: 3 }}>
+        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 64 }}>
+          <Box sx={{ fontWeight: 600, fontSize: 18, ml: 1 }}>{t(lang,'plannedTrips')}</Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <LanguageSwitcher />
+            <ThemeToggle inline />
+          </Box>
+        </Toolbar>
+      </AppBar>
+      <Box sx={{ p: 4 }}>
+        <Typography variant="h4" align="center" gutterBottom>
+          🧳 {t(lang,'plannedTrips')}
+        </Typography>
 
-      <TripForm onSaved={onSaved} />
+  <TripForm onSaved={onSaved} />
 
-      <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatDescription={formatDescription} />
+  <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatDescription={formatDescription} />
 
-      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
-        <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-          Trip Saved!
-        </Alert>
-      </Snackbar>
+        <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
+          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
+            {t(lang,'tripSaved')}
+          </Alert>
+        </Snackbar>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Confirm delete"
-        content="Are you sure you want to delete this trip? This action cannot be undone."
-        onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
-        onConfirm={handleDeleteConfirmed}
-      />
+        <ConfirmDialog
+          open={confirmOpen}
+          title={t(lang,'confirmDeleteTitle')}
+          content={t(lang,'confirmDeleteContent')}
+          onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+          onConfirm={handleDeleteConfirmed}
+        />
 
-      <Snackbar open={deleteSnackbarOpen} autoHideDuration={3000} onClose={() => setDeleteSnackbarOpen(false)}>
-        <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-          Trip deleted
-        </Alert>
-      </Snackbar>
-    </Box>
+        <Snackbar open={deleteSnackbarOpen} autoHideDuration={3000} onClose={() => setDeleteSnackbarOpen(false)}>
+          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
+            {t(lang,'tripDeleted')}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </>
   );
 }
 

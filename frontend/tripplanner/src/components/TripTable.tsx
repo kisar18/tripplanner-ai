@@ -1,5 +1,7 @@
 import React from "react";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button } from "@mui/material";
+import { useLanguage } from "../language/LanguageContext";
+import { t } from "../language/i18n";
 import { Trip } from "../types";
 
 interface Props {
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function TripTable({ trips, onSelect, onRequestDelete, formatDescription }: Props) {
+  const { lang } = useLanguage();
   const fmt = formatDescription ?? ((desc: string) => desc);
 
   return (
@@ -17,10 +20,10 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatDesc
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell><strong>City</strong></TableCell>
-            <TableCell><strong>Number of Days</strong></TableCell>
-            <TableCell><strong>Description</strong></TableCell>
-            <TableCell><strong>Actions</strong></TableCell>
+            <TableCell><strong>{t(lang,'city')}</strong></TableCell>
+            <TableCell><strong>{t(lang,'numberOfDays')}</strong></TableCell>
+            <TableCell><strong>{t(lang,'description')}</strong></TableCell>
+            <TableCell><strong>{t(lang,'actions')}</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -39,7 +42,7 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatDesc
                     onRequestDelete(trip.id);
                   }}
                 >
-                  Delete
+                  {t(lang,'delete')}
                 </Button>
               </TableCell>
             </TableRow>

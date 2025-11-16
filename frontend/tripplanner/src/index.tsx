@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { LanguageProvider } from './language/LanguageContext';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import ThemeToggle from './components/ThemeToggle';
@@ -38,11 +39,12 @@ function ThemedRoot() {
 
   return (
     <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ThemeToggle />
-        <App />
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <App />
+        </ThemeProvider>
+      </LanguageProvider>
     </ColorModeContext.Provider>
   );
 }
