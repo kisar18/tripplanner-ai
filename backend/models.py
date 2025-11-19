@@ -8,4 +8,6 @@ trips = Table(
     Column("city", String),
     Column("days", Integer),
     Column("description", String),
+    # JSON-encoded array of POI xids (stored as TEXT for SQLite compatibility)
+    Column("places_to_visit", String, nullable=True),
 )

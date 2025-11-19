@@ -81,11 +81,40 @@ export default function TripDetail({ trip, onBack }: Props) {
     setChecked(prev => checkedVal ? [...prev, xid] : prev.filter(x => x !== xid));
   };
 
-  const handleSavePlaces = () => {
-    // Update trip.placesToVisit locally (could POST to backend if needed)
-    trip.placesToVisit = checked;
-    setSaveMsg("Places to visit saved!");
-    setTimeout(() => setSaveMsg(null), 2000);
+  const handleSavePlaces = async () => {
+    try {
+      // Persist to backend
+      await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ places: checked })
+      });
+      // Update local state for immediate UX
+      trip.placesToVisit = checked;
+      setSaveMsg("Places to visit saved!");
+      setTimeout(() => setSaveMsg(null), 2000);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/export/pdf`);
+      if (!res.ok) throw new Error(await res.text() || res.statusText);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const citySafe = (trip.city || `trip-${trip.id}`).replace(/\s+/g, '_');
+      a.href = url;
+      a.download = `trip_${citySafe}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    }
   };
 
   return (
@@ -98,6 +127,14 @@ export default function TripDetail({ trip, onBack }: Props) {
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <LanguageSwitcher />
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleExportPDF}
+              sx={{ minWidth: 140, fontWeight: 600 }}
+            >
+              Export PDF
+            </Button>
             <Button
               variant="contained"
               color="primary"

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from db import database, engine, metadata
@@ -10,6 +11,8 @@ import httpx
 import time
 import re
 import unicodedata
+import json
+from io import BytesIO
 
 # In-memory caches to reduce latency and repeated external calls
 GEOCODE_CACHE: dict[str, tuple[float, float, float]] = {}  # city_lower -> (lon, lat, ts)
@@ -35,9 +38,21 @@ class TripIn(BaseModel):
     days: int
     description: str
 
+class PlacesIn(BaseModel):
+    places: list[str]
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
+        # Best-effort SQLite migration to add places_to_visit column if missing
+        try:
+            res = await conn.exec_driver_sql("PRAGMA table_info(trips);")
+            cols = [row[1] for row in res.fetchall()]
+            if "places_to_visit" not in cols:
+                await conn.exec_driver_sql("ALTER TABLE trips ADD COLUMN places_to_visit TEXT;")
+        except Exception:
+            # Ignore migration errors so the app can still start
+            pass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,7 +76,8 @@ async def save_trip(trip: TripIn):
     query = trips.insert().values(
         city=trip.city,
         days=trip.days,
-        description=trip.description
+        description=trip.description,
+        places_to_visit=None
     )
     await database.execute(query)
     return {"status": "saved"}
@@ -69,7 +85,17 @@ async def save_trip(trip: TripIn):
 @app.get("/trips")
 async def get_trips():
     query = trips.select()
-    return await database.fetch_all(query)
+    rows = await database.fetch_all(query)
+    out = []
+    for r in rows:
+        d = dict(r)
+        raw = d.get("places_to_visit")
+        try:
+            d["placesToVisit"] = json.loads(raw) if raw else []
+        except Exception:
+            d["placesToVisit"] = []
+        out.append(d)
+    return out
 
 
 @app.delete("/trips/{trip_id}")
@@ -77,6 +103,96 @@ async def delete_trip(trip_id: int):
     query = trips.delete().where(trips.c.id == trip_id)
     await database.execute(query)
     return {"status": "deleted"}
+
+
+@app.get("/trips/{trip_id}/export/pdf")
+async def export_trip_pdf(trip_id: int):
+    # Fetch trip
+    row = await database.fetch_one(trips.select().where(trips.c.id == trip_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    data = dict(row)
+    # Parse places_to_visit
+    places = []
+    try:
+        if data.get("places_to_visit"):
+            places = json.loads(data["places_to_visit"]) or []
+    except Exception:
+        places = []
+
+    # Generate PDF in-memory
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib import colors
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF engine not available: {e}")
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Header
+    story.append(Paragraph("Trip Planner - Trip Export", styles["Title"]))
+    story.append(Spacer(1, 0.4*cm))
+
+    # Basics table
+    basics = [
+        ["ID", str(data.get("id"))],
+        ["City", data.get("city", "")],
+        ["Days", str(data.get("days", ""))],
+    ]
+    t = Table(basics, hAlign='LEFT', colWidths=[3*cm, 10*cm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 0.3*cm))
+
+    # Description
+    story.append(Paragraph("Description", styles["Heading2"]))
+    desc = (data.get("description") or "").replace("\n", "<br/>")
+    story.append(Paragraph(desc, styles["BodyText"]))
+    story.append(Spacer(1, 0.4*cm))
+
+    # Places to visit
+    story.append(Paragraph("Places to Visit (xids)", styles["Heading2"]))
+    if places:
+        rows = [[str(i+1), xid] for i, xid in enumerate(places)]
+        pt = Table([["#", "XID"]] + rows, hAlign='LEFT', colWidths=[1.2*cm, 11.8*cm])
+        pt.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+            ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+            ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(pt)
+    else:
+        story.append(Paragraph("No places saved for this trip.", styles["Italic"]))
+
+    doc.build(story)
+    buffer.seek(0)
+
+    filename_city = (data.get("city") or f"trip-{trip_id}").replace(" ", "_")
+    headers = {
+        "Content-Disposition": f"attachment; filename=trip_{filename_city}.pdf"
+    }
+    return StreamingResponse(buffer, media_type="application/pdf", headers=headers)
+
+
+@app.patch("/trips/{trip_id}/places")
+async def update_places(trip_id: int, payload: PlacesIn):
+    # store as JSON text in places_to_visit
+    ptv_json = json.dumps(payload.places or [])
+    upd = trips.update().where(trips.c.id == trip_id).values(places_to_visit=ptv_json)
+    await database.execute(upd)
+    return {"status": "updated", "trip_id": trip_id, "count": len(payload.places or [])}
 
 
 NAME_CACHE: dict[str, tuple[float, dict[str, str]]] = {}  # wikidata_id -> (ts, {lang: label})
