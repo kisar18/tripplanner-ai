@@ -76,24 +76,32 @@ export default function TripDetail({ trip, onBack }: Props) {
     [places, searchQuery]
   );
 
-  const handleCheck = (xid: string | undefined, checkedVal: boolean) => {
-    if (!xid) return;
-    setChecked(prev => checkedVal ? [...prev, xid] : prev.filter(x => x !== xid));
+  const handleCheck = (xid: string | number | undefined, checkedVal: boolean) => {
+    if (xid === undefined) return;
+    const xidStr = String(xid);
+    setChecked(prev => checkedVal ? [...prev, xidStr] : prev.filter(x => x !== xidStr));
   };
 
   const handleSavePlaces = async () => {
     try {
       // Persist to backend
-      await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
+      const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ places: checked })
       });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to save: ${errorText || res.statusText}`);
+      }
+      const result = await res.json();
+      console.log('Places saved:', result);
       // Update local state for immediate UX
       trip.placesToVisit = checked;
-      setSaveMsg("Places to visit saved!");
-      setTimeout(() => setSaveMsg(null), 2000);
+      setSaveMsg(`${result.count} place(s) saved successfully!`);
+      setTimeout(() => setSaveMsg(null), 3000);
     } catch (e: any) {
+      console.error('Error saving places:', e);
       setError(e?.message || String(e));
     }
   };
@@ -170,10 +178,10 @@ export default function TripDetail({ trip, onBack }: Props) {
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main', mb: 1 }}>{t(lang, 'placesToVisit')}</Typography>
               <Box component="ul" sx={{ pl: 3, mb: 0, fontSize: 16 }}>
                 {trip.placesToVisit.map(xid => {
-                  const found = places.find(p => p.xid === xid);
+                  const found = places.find(p => String(p.xid) === String(xid));
                   return (
                     <li key={xid} style={{ marginBottom: 4 }}>
-                      <span style={{ fontWeight: 500, color: '#4caf50' }}>{found?.name || xid}</span>
+                      <span style={{ fontWeight: 500, color: '#4caf50' }}>{found?.name_translated || found?.name_en || found?.name || xid}</span>
                     </li>
                   );
                 })}
@@ -245,7 +253,7 @@ export default function TripDetail({ trip, onBack }: Props) {
             }}>
               {filteredPlaces.map((p, i) => {
                 const img = p.image_url || '/placeholder.svg';
-                const xid = p.xid ?? String(i);
+                const xid = p.xid !== undefined ? String(p.xid) : String(i);
                 return (
                   <Box key={xid}>
                     <Card
@@ -279,8 +287,8 @@ export default function TripDetail({ trip, onBack }: Props) {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={checked.includes(xid)}
-                              onChange={e => handleCheck(xid, e.target.checked)}
+                              checked={checked.includes(String(p.xid ?? i))}
+                              onChange={e => handleCheck(p.xid, e.target.checked)}
                               color="primary"
                               sx={{ color: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'text.primary' }}
                             />

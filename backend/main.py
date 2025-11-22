@@ -112,26 +112,64 @@ async def export_trip_pdf(trip_id: int):
     if not row:
         raise HTTPException(status_code=404, detail="Trip not found")
     data = dict(row)
-    # Parse places_to_visit
-    places = []
+    # Parse places_to_visit (xids)
+    place_xids = []
     try:
         if data.get("places_to_visit"):
-            places = json.loads(data["places_to_visit"]) or []
+            place_xids = json.loads(data["places_to_visit"]) or []
     except Exception:
-        places = []
+        place_xids = []
+    
+    # Fetch detailed place info with images
+    place_details = []
+    if place_xids and data.get("city"):
+        try:
+            # Call /places endpoint to get full details
+            city = data.get("city")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(
+                    f"http://127.0.0.1:8000/places/{city}",
+                    params={"with_images": "true", "limit": 100}
+                )
+                if resp.status_code == 200:
+                    places_data = resp.json().get("places", [])
+                    # Filter to only saved xids (normalize to strings for comparison)
+                    xid_set = set(str(xid) for xid in place_xids)
+                    place_details = [p for p in places_data if str(p.get("xid")) in xid_set]
+                    # Sort by original order
+                    xid_order = {str(xid): i for i, xid in enumerate(place_xids)}
+                    place_details.sort(key=lambda p: xid_order.get(str(p.get("xid")), 999))
+        except Exception:
+            pass  # Fallback to xids only if fetch fails
 
     # Generate PDF in-memory
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
         from reportlab.lib import colors
+        from reportlab.lib.utils import ImageReader
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF engine not available: {e}")
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Create descriptive title for PDF metadata
+    city = data.get("city", "Trip")
+    days = data.get("days", "")
+    pdf_title = f"Trip to {city} - {days} days"
+    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=2*cm,
+        rightMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm,
+        title=pdf_title,
+        author="TripPlanner AI"
+    )
     styles = getSampleStyleSheet()
     story = []
 
@@ -162,9 +200,58 @@ async def export_trip_pdf(trip_id: int):
     story.append(Spacer(1, 0.4*cm))
 
     # Places to visit
-    story.append(Paragraph("Places to Visit (xids)", styles["Heading2"]))
-    if places:
-        rows = [[str(i+1), xid] for i, xid in enumerate(places)]
+    story.append(Paragraph("Places to Visit", styles["Heading2"]))
+    if place_details:
+        # Download all images first
+        async with httpx.AsyncClient(timeout=15.0) as img_client:
+            for place in place_details:
+                img_url = place.get("image_url")
+                if img_url:
+                    try:
+                        img_resp = await img_client.get(
+                            img_url,
+                            headers={
+                                "User-Agent": "Mozilla/5.0 (compatible; TripPlannerAI/1.0; +https://github.com/kisar18/tripplanner-ai)",
+                                "Accept": "image/*"
+                            }
+                        )
+                        if img_resp.status_code == 200:
+                            place["_image_data"] = img_resp.content
+                    except Exception:
+                        pass  # Skip if download fails
+        
+        # Now build the story with downloaded images
+        for i, place in enumerate(place_details, 1):
+            story.append(Paragraph(f"<b>{i}. {place.get('name_translated') or place.get('name', 'Unknown')}</b>", styles["Heading3"]))
+            
+            # Add image if downloaded
+            if "_image_data" in place:
+                try:
+                    img_data = BytesIO(place["_image_data"])
+                    img = Image(img_data, width=8*cm)
+                    story.append(img)
+                    story.append(Spacer(1, 0.2*cm))
+                except Exception:
+                    pass  # Skip if image rendering fails
+            
+            # Place info
+            info_parts = []
+            if place.get("kinds"):
+                info_parts.append(f"Type: {place['kinds']}")
+            if place.get("dist"):
+                info_parts.append(f"Distance: {int(place['dist'])}m from center")
+            if place.get("has_wikipedia"):
+                info_parts.append("Has Wikipedia article")
+            if place.get("has_website"):
+                info_parts.append("Has website")
+            
+            if info_parts:
+                story.append(Paragraph(" • ".join(info_parts), styles["BodyText"]))
+            
+            story.append(Spacer(1, 0.4*cm))
+    elif place_xids:
+        # Fallback to xids only
+        rows = [[str(i+1), xid] for i, xid in enumerate(place_xids)]
         pt = Table([["#", "XID"]] + rows, hAlign='LEFT', colWidths=[1.2*cm, 11.8*cm])
         pt.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
@@ -179,9 +266,13 @@ async def export_trip_pdf(trip_id: int):
     doc.build(story)
     buffer.seek(0)
 
-    filename_city = (data.get("city") or f"trip-{trip_id}").replace(" ", "_")
+    # Generate descriptive filename: TripPlanner_Prague_3days.pdf
+    city = (data.get("city") or f"Trip{trip_id}").replace(" ", "_")
+    days = data.get("days", "")
+    filename = f"TripPlanner_{city}_{days}days.pdf"
+    
     headers = {
-        "Content-Disposition": f"attachment; filename=trip_{filename_city}.pdf"
+        "Content-Disposition": f"attachment; filename={filename}"
     }
     return StreamingResponse(buffer, media_type="application/pdf", headers=headers)
 
@@ -339,6 +430,21 @@ async def places_for_city(city: str, radius: int = 5000, limit: int = 10, catego
                         name_translated = cached[1][lang]
                     else:
                         missing_wikidata.add(qid)
+            # Prefer any explicit image related tags, skipping Category: values (too generic)
+            raw_image_tag = (
+                tags.get("image") or
+                tags.get("image:filename") or
+                tags.get("image:name") or
+                tags.get("wikimedia_commons")
+            )
+            if raw_image_tag and raw_image_tag.lower().startswith("category:"):
+                raw_image_tag = None  # ignore categories; rely on wikipedia or wikidata image
+            if raw_image_tag and not raw_image_tag.lower().startswith(("http", "file:")):
+                # Treat as a Commons filename if it's a bare name
+                fname = raw_image_tag.strip().replace(" ", "_")
+                if not fname.lower().startswith("file:"):
+                    raw_image_tag = f"File:{fname}"
+
             poi_obj = {
                 "xid": elem.get("id"),
                 "name": name_orig,
@@ -352,7 +458,7 @@ async def places_for_city(city: str, radius: int = 5000, limit: int = 10, catego
                 "has_hours": bool(tags.get("opening_hours")),
                 "wikipedia": tags.get("wikipedia"),
                 "wikidata": tags.get("wikidata"),
-                "image_url": normalize_image_url(tags.get("image")),
+                "image_url": normalize_image_url(raw_image_tag),
             }
             # Preserve previous name_en for backward compatibility if lang is en
             if lang == "en":
@@ -424,21 +530,95 @@ async def places_for_city(city: str, radius: int = 5000, limit: int = 10, catego
         dedup = dedup[:limit]
 
         if with_images:
+            # Pass 1: wikipedia REST summary thumbnails
             for p in dedup:
-                if p.get("image_url") or not p.get("wikipedia"): continue
+                if p.get("image_url") or not p.get("wikipedia"):
+                    continue
                 wp = p["wikipedia"]
-                if ":" not in wp: continue
-                cached_img = IMG_CACHE.get(wp); stamp = time.time()
+                if ":" not in wp:
+                    continue
+                cached_img = IMG_CACHE.get("wikipedia:" + wp)
+                stamp = time.time()
                 if cached_img and (stamp - cached_img[0] < IMG_TTL):
-                    p["image_url"] = cached_img[1]; continue
+                    p["image_url"] = cached_img[1]
+                    continue
                 try:
                     lang_code, title = wp.split(":", 1)
                     url = f"https://{lang_code}.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(title.replace(' ', '_'))}"
-                    r2 = await client.get(url, headers={"User-Agent": "TripPlannerAI/1.0"}, timeout=8)
+                    r2 = await client.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; TripPlannerAI/1.0; +https://github.com/kisar18/tripplanner-ai)", "Accept": "application/json"}, timeout=8)
                     if r2.status_code == 200:
-                        j = r2.json(); img = (j.get("thumbnail") or {}).get("source") or (j.get("originalimage") or {}).get("source")
+                        j = r2.json()
+                        img = (j.get("thumbnail") or {}).get("source") or (j.get("originalimage") or {}).get("source")
                         if img:
-                            p["image_url"] = img; IMG_CACHE[wp] = (stamp, img)
+                            p["image_url"] = img
+                            IMG_CACHE["wikipedia:" + wp] = (stamp, img)
+                except Exception:
+                    pass
+
+            # Pass 2: Wikidata P18 (Commons media) batch fetch
+            missing_img_qids = [p.get("wikidata") for p in dedup if p.get("wikidata") and not p.get("image_url")]
+            if missing_img_qids:
+                uniq_qids = list(dict.fromkeys(missing_img_qids))[:50]
+                try:
+                    wd_img = await client.get(
+                        "https://www.wikidata.org/w/api.php",
+                        params={
+                            "action": "wbgetentities",
+                            "ids": "|".join(uniq_qids),
+                            "format": "json",
+                            "props": "claims"
+                        },
+                        headers={"User-Agent": "Mozilla/5.0 (compatible; TripPlannerAI/1.0; +https://github.com/kisar18/tripplanner-ai)", "Accept": "application/json"}, timeout=12
+                    )
+                    if wd_img.status_code == 200:
+                        ents = wd_img.json().get("entities", {})
+                        stamp = time.time()
+                        for p in dedup:
+                            qid = p.get("wikidata")
+                            if not qid or p.get("image_url") or qid not in ents:
+                                continue
+                            claims = ents[qid].get("claims", {})
+                            p18 = claims.get("P18")
+                            if p18 and isinstance(p18, list):
+                                for stmt in p18:
+                                    val = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
+                                    if isinstance(val, str) and val:
+                                        fname = val.strip().replace(" ", "_")
+                                        img_url = f"https://commons.wikimedia.org/wiki/Special:FilePath/{urllib.parse.quote(fname)}?width=800"
+                                        p["image_url"] = img_url
+                                        IMG_CACHE["wikidata:" + qid] = (stamp, img_url)
+                                        break
+                except Exception:
+                    pass
+
+            # Pass 3: Wikipedia pageimages fallback
+            remaining_wp = [p.get("wikipedia") for p in dedup if p.get("wikipedia") and not p.get("image_url")]
+            for wp in remaining_wp:
+                if ":" not in wp:
+                    continue
+                try:
+                    lang_code, title = wp.split(":", 1)
+                    rpi = await client.get(
+                        f"https://{lang_code}.wikipedia.org/w/api.php",
+                        params={
+                            "action": "query",
+                            "titles": title,
+                            "prop": "pageimages",
+                            "format": "json",
+                            "piprop": "original|thumbnail",
+                            "pithumbsize": 800
+                        },
+                        headers={"User-Agent": "Mozilla/5.0 (compatible; TripPlannerAI/1.0; +https://github.com/kisar18/tripplanner-ai)", "Accept": "application/json"}, timeout=10
+                    )
+                    if rpi.status_code == 200:
+                        pages = rpi.json().get("query", {}).get("pages", {})
+                        for _, page in pages.items():
+                            img = (page.get("thumbnail") or {}).get("source") or (page.get("original") or {}).get("source")
+                            if img:
+                                for p in dedup:
+                                    if p.get("wikipedia") == wp and not p.get("image_url"):
+                                        p["image_url"] = img
+                                break
                 except Exception:
                     pass
     return {"city": city, "lon": lon, "lat": lat, "places": dedup, "lang": lang}

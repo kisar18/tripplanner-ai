@@ -1,72 +1,148 @@
 ## Quick context
 
-- This repo is a small Trip Planner with a FastAPI backend (async, SQLAlchemy core + `databases`) and a Create-React-App TypeScript frontend (`frontend/tripplanner`).
-- Backend entrypoint: `backend/main.py` (FastAPI app). Frontend entrypoint: `frontend/tripplanner/src/App.tsx`.
+- Trip Planner app with FastAPI backend (async, SQLAlchemy Core + databases) and Create-React-App TypeScript frontend.
+- Backend: backend/main.py (FastAPI). Frontend: frontend/tripplanner/src/App.tsx.
+- **Key feature**: Finds interesting places via OpenStreetMap/Overpass API, enriches with Wikipedia/Wikidata images, exports PDFs with images.
 
-## Architecture (short)
+## Architecture
 
-- Backend: async FastAPI using SQLAlchemy Core `Table` definitions in `backend/models.py`, async engine in `backend/db.py` and the `databases` library for simple async queries. DB is SQLite at `sqlite+aiosqlite:///./tripplanner.db` (file created in the `backend` folder).
-- Frontend: React (TypeScript) bootstrapped with Create React App, Material UI used for UI. Frontend fetches backend at `http://127.0.0.1:8000` (see `App.tsx`).
-- Data flow: frontend POSTs JSON to `/save_trip` and GETs `/trips`. Backend saves rows to `trips` table defined in `backend/models.py` and returns rows via `database.fetch_all(query)`.
+### Backend
+- **FastAPI** with async SQLAlchemy Core (no ORM) + databases library for queries
+- **Database**: SQLite at sqlite+aiosqlite:///./tripplanner.db (created in backend/ folder)
+- **Tables**: trips table in backend/models.py with columns: id, city, days, description, places_to_visit (JSON string)
+- **Caching**: In-memory caches for geocoding (24h TTL), places (10m TTL), images (24h TTL) for fast responses
+- **External APIs**:
+  - Nominatim (geocoding)
+  - Overpass API (OpenStreetMap POI data)
+  - Wikipedia REST API (thumbnails)
+  - Wikidata API (P18 property for Commons images, labels for translations)
+- **PDF generation**: reportlab with images downloaded from Wikipedia/Commons
+
+### Frontend
+- **React TypeScript** with Material-UI components
+- **Theme**: Dark/light mode toggle with persistent state
+- **i18n**: Multi-language support (en, cs, es) with LanguageContext
+- **Components**:
+  - TripForm.tsx - Create trips
+  - TripTable.tsx - List all trips
+  - TripDetail.tsx - View trip, browse/select places, export PDF
+  - LanguageSwitcher.tsx, ThemeToggle.tsx - UI controls
+- Base URL: http://127.0.0.1:8000
 
 ## Important files
 
-- `backend/main.py` — FastAPI app and endpoints (/save_trip, /trips). Lifespan handler creates DB tables and connects the `databases.Database` instance.
-- `backend/db.py` — DB URL, async engine, `metadata` and `database` instance. Modify here to change DB connection.
-- `backend/models.py` — `trips` table definition (SQLAlchemy Core Table). Note: `itinerary` column is a String in the schema.
-- `backend/crud.py` — intentionally empty placeholder for extracting DB logic from endpoints.
-- `backend/requirements.txt` — Python dependencies for backend (install with pip).
-- `frontend/tripplanner/src/App.tsx` — single-page UI; shows how frontend calls backend (hard-coded base URLs).
-- `frontend/tripplanner/package.json` — frontend scripts: `start`, `build`, `test`.
+### Backend
+- backend/main.py (605 lines)  Main FastAPI app with 6 endpoints:
+  - POST /save_trip - Create trip
+  - GET /trips - List all trips with placesToVisit
+  - DELETE /trips/{trip_id} - Delete trip
+  - PATCH /trips/{trip_id}/places - Save selected places (xids) for trip
+  - GET /trips/{trip_id}/export/pdf - Export trip as PDF with images
+  - GET /places/{city} - Get POIs with optional images & translations
+- backend/db.py  Database setup (engine, metadata, database instance)
+- backend/models.py  trips Table definition
+- backend/pdf_generator.py  PDF generation with images (async download, reportlab)
+- backend/image_enrichment.py  Image enrichment from Wikipedia/Wikidata (3-pass strategy)
+- backend/requirements.txt  Dependencies including httpx, reportlab, databases, fastapi
 
-## How to run (developer tasks)
+### Frontend
+- frontend/tripplanner/src/App.tsx  Main router with dark/light theme
+- frontend/tripplanner/src/components/TripDetail.tsx  POI browsing, image display, place selection, PDF export
+- frontend/tripplanner/src/language/  i18n context and translations (en, cs, es)
+- frontend/tripplanner/src/theme/  Material-UI theme configuration
 
-1. Backend (PowerShell, run from `backend`):
+## How to run
 
-   - Install dependencies: `python -m pip install -r requirements.txt`
-   - Start dev server: `uvicorn main:app --reload --host 127.0.0.1 --port 8000`
+### Backend (PowerShell from backend/)
+python -m pip install -r requirements.txt
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-   Notes: `main.py` performs `metadata.create_all` on startup using the async engine; the SQLite file `tripplanner.db` will be created next to `backend`.
+Note: main.py auto-creates tables on startup; migrates places_to_visit column if missing
 
-2. Frontend (PowerShell, run from `frontend/tripplanner`):
+### Frontend (PowerShell from frontend/tripplanner/)
+npm install
+npm start
 
-   - Install deps: `npm install`
-   - Start dev server: `npm start` (opens at http://localhost:3000)
+Opens at http://localhost:3000
 
-3. Integration: Frontend expects backend at `http://127.0.0.1:8000` (see `fetch` calls in `App.tsx`). CORS is permissive (`allow_origins=['*']`) in `main.py`.
+## Key patterns & gotchas
 
-## Notes about patterns & gotchas (project-specific)
+### Backend
+- **SQLAlchemy Core** (not ORM): Use trips.insert(), trips.select(), etc.
+- **places_to_visit**: Stored as JSON string (['xid1', 'xid2']), parsed in /trips endpoint to placesToVisit array
+- **Image enrichment**: 3-pass strategy for reliability:
+  1. Wikipedia REST summary API (lang:title format)
+  2. Wikidata P18 property (batch fetch for Commons filenames)
+  3. Wikipedia pageimages API (fallback)
+- **User-Agent CRITICAL**: Wikipedia/Wikidata/Commons require Mozilla/5.0 (compatible; TripPlannerAI/1.0; +https://github.com/kisar18/tripplanner-ai) or return 403
+- **PDF metadata**: Use title and author params in SimpleDocTemplate for browser tab display
+- **Caching**: Global dicts (GEOCODE_CACHE, PLACES_CACHE, IMG_CACHE) with timestamps for TTL
+- **Deduplication**: Places matched by wikidata/wikipedia/name+distance to avoid duplicates from Overpass
 
-- The project uses SQLAlchemy Core tables + the `databases` library, not SQLAlchemy ORM classes. To add queries, use `trips.insert()`, `trips.select()` etc., or move logic into `backend/crud.py`.
-- `itinerary` is stored as a string column but the frontend treats it as structured JSON in TypeScript (`Record<string,string>`). The backend currently stores whatever string is posted — be explicit about JSON encoding/decoding if you need structured queries.
-- `crud.py` exists as a place to move DB calls out of `main.py` — if you add it, keep it async and use the `database` instance from `backend/db.py`.
-- No tests or CI are present in the repo. Keep changes small and verify locally: start backend, then frontend, and exercise the UI to validate end-to-end behavior.
+### Frontend
+- **Type handling**: Place xid can be number or string - always normalize with String(xid) for comparisons
+- **Place display**: Shows name_translated (preferred)  name_en  name based on selected language
+- **Image fallback**: Uses /placeholder.svg if image_url is null
+- **PDF export**: Calls /trips/{id}/export/pdf, creates blob URL, triggers download with filename from Content-Disposition
 
-## Examples (useful snippets)
+## API Endpoints
 
-- Save trip payload (frontend -> backend):
+POST   /save_trip              - Create trip (city, days, description)
+GET    /trips                  - List trips with placesToVisit array
+DELETE /trips/{trip_id}        - Delete trip
+PATCH  /trips/{trip_id}/places - Update places_to_visit (JSON array of xids)
+GET    /trips/{trip_id}/export/pdf - Export PDF (filename: TripPlanner_{city}_{days}days.pdf, title: Trip to {city} - {days} days)
+GET    /places/{city}          - Get POIs with optional images/translations
+       ?category=all|museums|parks|restaurants|historic|attractions|viewpoints
+       &with_images=true       - Enrich with Wikipedia/Wikidata images
+       &lang=en|cs|es          - Translate names via Wikidata labels
+       &radius=5000            - Search radius in meters
+       &limit=10               - Max results
 
-```json
-{ "city": "Prague", "days": 3, "itinerary": "Day1: ..." }
-```
+## Common tasks
 
-- Start backend (from `backend`):
+### Add new endpoint
+1. Define Pydantic model if needed (see TripIn, PlacesIn)
+2. Add route in main.py with @app.get/post/patch/delete
+3. Use await database.execute(query) or await database.fetch_all(query)
 
-```
-python -m pip install -r requirements.txt; uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
+### Modify places scoring
+- Edit scoring logic in /places/{city} endpoint (~line 350-370)
+- Current factors: building type, historic tag, wikipedia, wikidata, opening_hours, website, distance
 
-- Start frontend (from `frontend/tripplanner`):
+### Add new language
+1. Add translations to frontend/tripplanner/src/language/i18n.ts
+2. Update SUPPORTED_LANGS in frontend/tripplanner/src/language/LanguageContext.tsx
+3. Backend supports any 2-letter ISO code for Wikidata labels
 
-```
-npm install; npm start
-```
+### Debug image issues
+- Check User-Agent header in all Wikipedia/Wikidata/Commons requests
+- Verify image_url normalization (File:, Category:, Special:FilePath, direct URLs)
+- Check IMG_CACHE for cached failures
 
-## Where to look next (for contributors/agents)
+## Dependencies
 
-- Add domain logic to `backend/crud.py` and keep `main.py` small. If adding models or migrations, prefer explicit SQLAlchemy Core definitions in `models.py` and ensure `metadata.create_all` is called on startup.
-- If you change the DB URL or move to Postgres, edit `backend/db.py` and update `requirements.txt`.
+### Backend (key packages)
+- fastapi==0.120.2
+- databases==0.9.0 (async query interface)
+- httpx==0.24.1 (external API calls)
+- reportlab==4.0.9 (PDF generation)
+- SQLAlchemy==2.0.44 (Core only)
+- aiosqlite==0.21.0 (async SQLite driver)
+
+### Frontend (key packages)
+- react 18.x + TypeScript
+- @mui/material (Material-UI components)
+- React Router (navigation)
+
+## Testing/Validation
+- No automated tests - validate manually by:
+  1. Create trip in UI
+  2. View trip, check places load with images
+  3. Select places, click Save Places to Visit
+  4. Export PDF, verify images appear in document
+  5. Check browser tab shows proper PDF title
 
 ---
 
-If something here is unclear or you'd like the file to include additional examples (tests, recommended endpoint contracts, or a small dev script), tell me which parts to expand and I will iterate.
+For questions about implementation details, check inline comments in main.py (places endpoint, image enrichment) or TripDetail.tsx (POI display logic).
