@@ -36,6 +36,7 @@ export default function TripDetail({ trip, onBack }: Props) {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [checked, setChecked] = useState<string[]>(trip.placesToVisit ?? []);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const pretty = useMemo(() => {
     try {
@@ -107,6 +108,7 @@ export default function TripDetail({ trip, onBack }: Props) {
   };
 
   const handleExportPDF = async () => {
+    setPdfLoading(true);
     try {
       const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/export/pdf`);
       if (!res.ok) throw new Error(await res.text() || res.statusText);
@@ -122,6 +124,8 @@ export default function TripDetail({ trip, onBack }: Props) {
       window.URL.revokeObjectURL(url);
     } catch (e: any) {
       setError(e?.message || String(e));
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -139,9 +143,11 @@ export default function TripDetail({ trip, onBack }: Props) {
               variant="outlined"
               color="secondary"
               onClick={handleExportPDF}
+              disabled={pdfLoading}
               sx={{ minWidth: 140, fontWeight: 600 }}
+              startIcon={pdfLoading ? <CircularProgress size={20} /> : null}
             >
-              Export PDF
+              {pdfLoading ? 'Generating...' : 'Export PDF'}
             </Button>
             <Button
               variant="contained"
