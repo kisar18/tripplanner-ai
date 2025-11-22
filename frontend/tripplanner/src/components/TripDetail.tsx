@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Box, Button, Paper, Typography, CircularProgress, Alert, Link, ToggleButton, ToggleButtonGroup, TextField, Card, CardMedia, CardContent, Chip, Checkbox, FormControlLabel, AppBar, Toolbar } from "@mui/material";
-import ThemeToggle from "./ThemeToggle";
-import LanguageSwitcher from "./LanguageSwitcher";
+import { Box, Button, Paper, Typography, CircularProgress, Alert, Link, ToggleButton, ToggleButtonGroup, TextField, Card, CardMedia, CardContent, Chip, Checkbox, FormControlLabel } from "@mui/material";
+// Removed internal ThemeToggle & LanguageSwitcher to avoid duplicate global menu
 import { useLanguage } from "../language/LanguageContext";
 import { t } from "../language/i18n";
 import { Trip } from "../types";
@@ -24,27 +23,17 @@ interface POI {
 
 interface Props {
   trip: Trip;
-  onBack: () => void;
+  checked: string[];
+  setChecked: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
-export default function TripDetail({ trip, onBack }: Props) {
+export default function TripDetail({ trip, checked, setChecked }: Props) {
   const { lang } = useLanguage();
   const [places, setPlaces] = useState<POI[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [checked, setChecked] = useState<string[]>(trip.placesToVisit ?? []);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
-
-  const pretty = useMemo(() => {
-    try {
-      return JSON.stringify(JSON.parse(trip.description), null, 2);
-    } catch {
-      return trip.description;
-    }
-  }, [trip.description]);
 
   useEffect(() => {
     let mounted = true;
@@ -83,85 +72,10 @@ export default function TripDetail({ trip, onBack }: Props) {
     setChecked(prev => checkedVal ? [...prev, xidStr] : prev.filter(x => x !== xidStr));
   };
 
-  const handleSavePlaces = async () => {
-    try {
-      // Persist to backend
-      const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ places: checked })
-      });
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to save: ${errorText || res.statusText}`);
-      }
-      const result = await res.json();
-      console.log('Places saved:', result);
-      // Update local state for immediate UX
-      trip.placesToVisit = checked;
-      setSaveMsg(`${result.count} place(s) saved successfully!`);
-      setTimeout(() => setSaveMsg(null), 3000);
-    } catch (e: any) {
-      console.error('Error saving places:', e);
-      setError(e?.message || String(e));
-    }
-  };
-
-  const handleExportPDF = async () => {
-    setPdfLoading(true);
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/export/pdf`);
-      if (!res.ok) throw new Error(await res.text() || res.statusText);
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const citySafe = (trip.city || `trip-${trip.id}`).replace(/\s+/g, '_');
-      a.href = url;
-      a.download = `trip_${citySafe}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message || String(e));
-    } finally {
-      setPdfLoading(false);
-    }
-  };
+  // Save and export now handled by parent via global menu
 
   return (
     <Box sx={{ p: 4 }}>
-      {/* Sticky top menu with Save button and Back */}
-      <AppBar position="sticky" color="default" elevation={2} sx={{ mb: 3, borderRadius: '0 0 1rem 1rem', boxShadow: 3 }}>
-        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 64 }}>
-          <Button variant="outlined" onClick={onBack} sx={{ fontWeight: 600, fontSize: 16 }}>
-            ← {t(lang, 'backToList')}
-          </Button>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <LanguageSwitcher />
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleExportPDF}
-              disabled={pdfLoading}
-              sx={{ minWidth: 140, fontWeight: 600 }}
-              startIcon={pdfLoading ? <CircularProgress size={20} /> : null}
-            >
-              {pdfLoading ? 'Generating...' : 'Export PDF'}
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              sx={{ minWidth: 180, fontWeight: 600, fontSize: 18, boxShadow: 3 }}
-              onClick={handleSavePlaces}
-              disabled={checked.length === 0}
-            >
-              {t(lang, 'savePlacesToVisit')}
-            </Button>
-            <ThemeToggle inline />
-          </Box>
-        </Toolbar>
-      </AppBar>
 
       <Paper elevation={6} sx={{ p: { xs: 2, sm: 4 }, maxWidth: 900, mx: "auto", borderRadius: "1.5rem", bgcolor: 'background.paper', boxShadow: 6 }}>
         <Box sx={{ mb: 3, pb: 2, borderBottom: '2px solid', borderColor: 'divider' }}>
@@ -257,7 +171,7 @@ export default function TripDetail({ trip, onBack }: Props) {
               gap: 3,
               mb: 2
             }}>
-              {filteredPlaces.map((p, i) => {
+              {filteredPlaces.map((p: POI, i: number) => {
                 const img = p.image_url || '/placeholder.svg';
                 const xid = p.xid !== undefined ? String(p.xid) : String(i);
                 return (
@@ -360,8 +274,6 @@ export default function TripDetail({ trip, onBack }: Props) {
                 );
               })}
             </Box>
-            {/* Save button moved to sticky AppBar above */}
-            {saveMsg && <Alert severity="success" sx={{ mt: 2 }}>{saveMsg}</Alert>}
           </>
         )}
       </Paper>

@@ -1,13 +1,52 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  transition: background 0.6s ease, color 0.4s ease;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Luxury helper classes */
+.luxury-gradient {
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  color: white;
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+  border-radius: 1.2rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+}
+
+.luxury-text-shadow {
+  text-shadow: 0 4px 18px rgba(0,0,0,0.6);
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-bg {
+  background: linear-gradient(120deg,#141e30,#243b55,#141e30);
+  background-size: 200% 200%;
+  animation: gradientShift 18s ease-in-out infinite;
+}
+
+.noise-overlay:before {
+  content: "";
+  position: fixed;
+  top:0;left:0;right:0;bottom:0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/fi lter%3E%3C/defs%3E%3Crect width='160' height='160' filter='url(%23a)' opacity='.18'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: .35;
 }

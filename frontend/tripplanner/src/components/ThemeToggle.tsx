@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Box, FormControlLabel, Switch, Tooltip } from '@mui/material';
+import { FormControlLabel, Switch, Tooltip } from '@mui/material';
 import { ColorModeContext } from '../theme/ColorModeContext';
 import { useLanguage } from '../language/LanguageContext';
 import { t } from '../language/i18n';

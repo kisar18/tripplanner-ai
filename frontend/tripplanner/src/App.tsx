@@ -1,112 +1,143 @@
-import React, { useEffect, useState } from "react";
-import { Box, Typography, Snackbar, Alert, AppBar, Toolbar } from "@mui/material";
-import ThemeToggle from "./components/ThemeToggle";
-import LanguageSwitcher from "./components/LanguageSwitcher";
-import { useLanguage } from "./language/LanguageContext";
-import { t } from "./language/i18n";
-import "./App.css";
-import { Trip } from "./types";
-import TripForm from "./components/TripForm";
-import TripTable from "./components/TripTable";
-import TripDetail from "./components/TripDetail";
-import ConfirmDialog from "./components/ConfirmDialog";
-
-function App() {
+import React, { useState, useEffect } from 'react';
+import { AppBar, Toolbar, Box, Button, CircularProgress } from '@mui/material';
+import { BrowserRouter, Routes, Route, Link as RouterLink, useLocation } from 'react-router-dom';
+import ThemeToggle from './components/ThemeToggle';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import { useLanguage } from './language/LanguageContext';
+import { t } from './language/i18n';
+import './App.css';
+import HomePage from './pages/HomePage';
+import CreateTripPage from './pages/CreateTripPage';
+import MyTripsPage from './pages/MyTripsPage';
+import TripDetailPage from './pages/TripDetailPage';
+const AppShell = () => {
   const { lang } = useLanguage();
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [deleteSnackbarOpen, setDeleteSnackbarOpen] = useState(false);
-
-  const fetchTrips = () => {
-    fetch("http://127.0.0.1:8000/trips")
-      .then((res) => res.json())
-      .then((data) => setTrips(data))
-      .catch((err) => console.error(err));
-  };
+  const location = useLocation();
+  const [detailActions, setDetailActions] = useState<any>(null);
+  const onTripDetail = /^\/trip\//.test(location.pathname);
 
   useEffect(() => {
-    fetchTrips();
-  }, []);
+    if (!onTripDetail) setDetailActions(null);
+  }, [onTripDetail]);
 
-  const onSaved = () => {
-    fetchTrips();
-    setSnackbarOpen(true);
-  };
-
-  const openDeleteConfirm = (id: number) => {
-    setPendingDeleteId(id);
-    setConfirmOpen(true);
-  };
-
-  const handleDeleteConfirmed = async () => {
-    if (pendingDeleteId == null) return;
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/trips/${pendingDeleteId}`, { method: "DELETE" });
-      if (res.ok) {
-        fetchTrips();
-        if (selectedTrip?.id === pendingDeleteId) setSelectedTrip(null);
-        setDeleteSnackbarOpen(true);
-      } else {
-        console.error("Delete failed:", await res.text());
-      }
-    } catch (err) {
-      console.error("Network error (delete):", err);
-    } finally {
-      setConfirmOpen(false);
-      setPendingDeleteId(null);
-    }
-  };
-
-  const formatDescription = (desc: string) => desc;
-
-  if (selectedTrip) {
-    return <TripDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
-  }
+  const navItems = [
+    { label: 'TripPlanner AI', path: '/' },
+    { label: t(lang,'addNewTrip'), path: '/create' },
+    { label: t(lang,'plannedTrips'), path: '/trips', match: (p:string) => p.startsWith('/trips') || /^\/trip\//.test(p) }
+  ];
 
   return (
     <>
-      <AppBar position="sticky" color="default" elevation={2} sx={{ mb: 3, borderRadius: '0 0 1rem 1rem', boxShadow: 3 }}>
+      <AppBar position='sticky' color='default' elevation={3} sx={{ mb: 0, backdropFilter: 'blur(6px)' }}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 64 }}>
-          <Box sx={{ fontWeight: 600, fontSize: 18, ml: 1 }}>{t(lang,'plannedTrips')}</Box>
+          <Box
+            sx={(theme) => ({
+              display: 'flex',
+              alignItems: 'stretch',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              backdropFilter: 'blur(8px)',
+              boxShadow: theme.palette.mode === 'dark'
+                ? '0 0 0 1px rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.4)'
+                : '0 0 0 1px rgba(0,0,0,0.08), 0 4px 14px rgba(0,0,0,0.08)',
+              background: theme.palette.mode === 'dark'
+                ? 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
+                : 'linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))',
+              '& .navBtn': {
+                fontWeight: 600,
+                fontSize: 15,
+                px: 2.4,
+                py: 1.1,
+                lineHeight: 1.2,
+                borderRight: `1px solid ${theme.palette.divider}`,
+                color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
+                transition: 'background .25s, color .25s',
+                textTransform: 'none',
+                '&:hover': {
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255,255,255,0.12)'
+                    : 'rgba(0,0,0,0.06)'
+                },
+                '&:active': {
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255,255,255,0.18)'
+                    : 'rgba(0,0,0,0.1)'
+                },
+                '&:last-of-type': { borderRight: 'none' }
+              },
+              '& .navBtn.active': {
+                fontWeight: 700,
+                fontSize: 16,
+                background: theme.palette.mode === 'dark'
+                  ? 'linear-gradient(145deg, rgba(120,120,255,0.30), rgba(255,180,255,0.22))'
+                  : 'linear-gradient(145deg, rgba(80,80,255,0.25), rgba(255,140,255,0.22))',
+                boxShadow: theme.palette.mode === 'dark'
+                  ? 'inset 0 0 0 1px rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.45)'
+                  : 'inset 0 0 0 1px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.14)',
+                color: theme.palette.mode === 'dark' ? '#fff' : '#111',
+                letterSpacing: '.5px'
+              },
+              '@media (max-width:900px)': { '& .navBtn': { fontSize: 14, px: 2 } }
+            })}
+          >
+            {navItems.map(item => {
+              const active = item.match ? item.match(location.pathname) : location.pathname === item.path;
+              return (
+                <Button
+                  key={item.path}
+                  className={`navBtn ${active ? 'active' : ''}`}
+                  component={RouterLink}
+                  to={item.path}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {onTripDetail && detailActions && (
+              <>
+                <Button
+                  onClick={detailActions.exportPdf}
+                  variant='outlined'
+                  color='secondary'
+                  disabled={detailActions.exporting}
+                  sx={{ fontWeight: 600 }}
+                  startIcon={detailActions.exporting ? <CircularProgress size={18} /> : null}
+                >
+                  {detailActions.exporting ? 'Exporting…' : 'Export PDF'}
+                </Button>
+                <Button
+                  onClick={detailActions.savePlaces}
+                  variant='contained'
+                  color='primary'
+                  disabled={!detailActions.hasSelection}
+                  sx={{ fontWeight: 600 }}
+                >
+                  {t(lang,'savePlacesToVisit')}
+                </Button>
+              </>
+            )}
             <LanguageSwitcher />
             <ThemeToggle inline />
           </Box>
         </Toolbar>
       </AppBar>
-      <Box sx={{ p: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          🧳 {t(lang,'plannedTrips')}
-        </Typography>
-
-  <TripForm onSaved={onSaved} />
-
-  <TripTable trips={trips} onSelect={(t) => setSelectedTrip(t)} onRequestDelete={openDeleteConfirm} formatDescription={formatDescription} />
-
-        <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
-          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-            {t(lang,'tripSaved')}
-          </Alert>
-        </Snackbar>
-
-        <ConfirmDialog
-          open={confirmOpen}
-          title={t(lang,'confirmDeleteTitle')}
-          content={t(lang,'confirmDeleteContent')}
-          onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
-          onConfirm={handleDeleteConfirmed}
-        />
-
-        <Snackbar open={deleteSnackbarOpen} autoHideDuration={3000} onClose={() => setDeleteSnackbarOpen(false)}>
-          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-            {t(lang,'tripDeleted')}
-          </Alert>
-        </Snackbar>
-      </Box>
+      <Routes>
+        <Route path='/' element={<HomePage />} />
+        <Route path='/create' element={<CreateTripPage />} />
+        <Route path='/trips' element={<MyTripsPage />} />
+        <Route path='/trip/:id' element={<TripDetailPage registerActions={setDetailActions} />} />
+      </Routes>
     </>
+  );
+};
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
   );
 }
 
