@@ -9,9 +9,7 @@ import PageContainer from '../components/PageContainer';
 
 interface DetailActions {
   exportPdf: () => void;
-  savePlaces: () => void;
   exporting: boolean;
-  hasSelection: boolean;
 }
 
 export default function TripDetailPage({ registerActions }: { registerActions?: (a: DetailActions | null) => void }) {
@@ -22,8 +20,13 @@ export default function TripDetailPage({ registerActions }: { registerActions?: 
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasPatchedOnce = React.useRef(false);
   const navigate = useNavigate();
   const { lang } = useLanguage();
+
+  useEffect(() => {
+    hasPatchedOnce.current = false;
+  }, [tripId]);
 
   useEffect(() => {
     const load = async () => {
@@ -68,34 +71,41 @@ export default function TripDetailPage({ registerActions }: { registerActions?: 
           setExporting(false);
         }
       },
-      savePlaces: async () => {
-        if (!trip) return;
-        setSaving(true);
-        try {
-          const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ places: checked })
-          });
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(txt || res.statusText);
-          }
-          trip.placesToVisit = [...checked];
-        } catch (e) {
-          console.error('Save places failed', e);
-        } finally {
-          setSaving(false);
-        }
-      },
-      exporting,
-      hasSelection: checked.length > 0
+      exporting
     });
     return () => { registerActions(null); };
-  }, [registerActions, trip, checked, exporting]);
+  }, [registerActions, trip, exporting]);
+
+  // Auto-save places when selection changes (after initial load)
+  useEffect(() => {
+    if (!trip) return;
+    if (!hasPatchedOnce.current) {
+      hasPatchedOnce.current = true;
+      return;
+    }
+    const persist = async () => {
+      setSaving(true);
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/trips/${trip.id}/places`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ places: checked })
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || res.statusText);
+        }
+      } catch (e) {
+        console.error('Auto-save places failed', e);
+      } finally {
+        setSaving(false);
+      }
+    };
+    persist();
+  }, [checked, trip?.id]);
 
   if (loading) return <PageContainer><Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box></PageContainer>;
   if (!trip) return <PageContainer><Box sx={{ textAlign: 'center', mt: 8 }}><Button variant='outlined' onClick={() => navigate('/trips')}>{t(lang,'backToList')}</Button><Box sx={{ mt:2 }}>{t(lang,'plannedTrips')} not found.</Box></Box></PageContainer>;
 
-  return <PageContainer><TripDetail trip={trip} checked={checked} setChecked={setChecked} /></PageContainer>;
+  return <PageContainer><TripDetail trip={trip} checked={checked} setChecked={setChecked} saving={saving} /></PageContainer>;
 }

@@ -33,7 +33,7 @@ const PageContainer = React.forwardRef<HTMLDivElement, PageContainerProps>(
           } : {
             background: isLight
               ? 'linear-gradient(135deg,#f8fafc 0%,#e9eef5 45%,#dfe6f0 70%)'
-              : 'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)',
+              : 'radial-gradient(circle at 15% 20%, rgba(125,211,252,0.16), transparent 32%), radial-gradient(circle at 85% 10%, rgba(244,114,182,0.14), transparent 30%), linear-gradient(135deg,#050910 0%,#0c1424 55%,#050910 100%)',
             '&:before': isLight ? {
               content: '""',
               position: 'absolute',

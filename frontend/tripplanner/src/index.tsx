@@ -34,7 +34,57 @@ function ThemedRoot() {
   }), [mode]);
 
   const theme = useMemo(() => createTheme({
-    palette: { mode }
+    palette: {
+      mode,
+      primary: {
+        main: mode === 'dark' ? '#7dd3fc' : '#2563eb'
+      },
+      secondary: {
+        main: mode === 'dark' ? '#f472b6' : '#f43f5e'
+      },
+      background: mode === 'dark'
+        ? { default: '#050910', paper: 'rgba(12,18,32,0.9)' }
+        : { default: '#f8fafc', paper: '#ffffff' },
+      text: mode === 'dark'
+        ? { primary: '#e5edf7', secondary: '#9fb3c8' }
+        : { primary: '#0f172a', secondary: '#475569' },
+      divider: mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+    },
+    typography: {
+      fontFamily: '"Space Grotesk", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
+      h1: { fontWeight: 700 },
+      h2: { fontWeight: 700 },
+      h3: { fontWeight: 700 },
+      button: { fontWeight: 700 }
+    },
+    shape: { borderRadius: 14 },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            border: mode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.04)'
+          }
+        }
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            border: mode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.04)'
+          }
+        }
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 12,
+            textTransform: 'none',
+            fontWeight: 700
+          }
+        }
+      }
+    }
   }), [mode]);
 
   return (

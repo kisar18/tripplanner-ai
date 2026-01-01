@@ -27,10 +27,10 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatDesc
       backdropFilter: 'blur(16px)',
       background: isLight
         ? 'linear-gradient(165deg, rgba(255,255,255,0.95), rgba(248,250,252,0.85))'
-        : 'linear-gradient(165deg, rgba(20,20,30,0.95), rgba(10,10,20,0.85))',
+        : 'linear-gradient(165deg, rgba(8,12,24,0.95), rgba(5,9,16,0.9))',
       boxShadow: isLight
         ? '0 20px 60px rgba(0,0,0,0.08), 0 0 0 1px rgba(99,102,241,0.1)'
-        : '0 25px 70px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.2)',
+        : '0 25px 70px rgba(0,0,0,0.7), 0 0 0 1px rgba(125,211,252,0.16)',
       transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
       '&:hover': {
         boxShadow: isLight
@@ -42,16 +42,28 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatDesc
         <TableHead>
           <TableRow sx={{
             background: isLight
-              ? 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)'
-              : 'linear-gradient(135deg,#4338ca 0%,#6b21a8 100%)',
+              ? 'linear-gradient(120deg, #2563eb 0%, #8b5cf6 60%, #ec4899 100%)'
+              : 'linear-gradient(120deg, rgba(14,165,233,0.22) 0%, rgba(124,58,237,0.28) 55%, rgba(236,72,153,0.3) 100%)',
+            backdropFilter: 'blur(12px)',
             '& th': {
-              color: 'white',
-              fontWeight: 700,
-              fontSize: '1rem',
-              letterSpacing: '0.5px',
-              py: 2.5,
+              color: isLight ? '#f8fafc' : '#e5edf7',
+              fontWeight: 800,
+              fontSize: '1.05rem',
+              letterSpacing: '0.6px',
+              py: 2.6,
               textTransform: 'uppercase',
-              borderBottom: 'none'
+              borderBottom: 'none',
+              position: 'relative',
+              overflow: 'hidden'
+            },
+            '& th:after': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0))',
+              opacity: isLight ? 0.28 : 0.18,
+              pointerEvents: 'none',
+              mixBlendMode: 'screen'
             }
           }}>
             <TableCell>{t(lang,'city')}</TableCell>
@@ -77,11 +89,11 @@ export default function TripTable({ trips, onSelect, onRequestDelete, formatDesc
                 '&:hover': {
                   background: isLight
                     ? 'linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))'
-                    : 'linear-gradient(90deg, rgba(99,102,241,0.15), rgba(139,92,246,0.12))',
+                    : 'linear-gradient(90deg, rgba(14,165,233,0.18), rgba(124,58,237,0.16))',
                   transform: 'translateX(8px) scale(1.01)',
                   boxShadow: isLight
                     ? 'inset 4px 0 0 0 #6366f1'
-                    : 'inset 4px 0 0 0 #8b5cf6'
+                    : 'inset 4px 0 0 0 #38bdf8'
                 },
                 '& td': {
                   py: 2.5,

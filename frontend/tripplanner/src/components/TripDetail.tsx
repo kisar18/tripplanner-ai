@@ -25,15 +25,28 @@ interface Props {
   trip: Trip;
   checked: string[];
   setChecked: React.Dispatch<React.SetStateAction<string[]>>;
+  saving?: boolean;
 }
 
-export default function TripDetail({ trip, checked, setChecked }: Props) {
+export default function TripDetail({ trip, checked, setChecked, saving = false }: Props) {
   const { lang } = useLanguage();
   const [places, setPlaces] = useState<POI[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  useEffect(() => {
+    let timer: number | undefined;
+    if (saving) {
+      setSaveStatus('saving');
+    } else if (saveStatus === 'saving') {
+      setSaveStatus('saved');
+      timer = window.setTimeout(() => setSaveStatus('idle'), 1500);
+    }
+    return () => { if (timer) window.clearTimeout(timer); };
+  }, [saving]);
 
   useEffect(() => {
     let mounted = true;
@@ -93,11 +106,11 @@ export default function TripDetail({ trip, checked, setChecked }: Props) {
             {trip.description}
           </Box>
           {/* List of selected places to visit */}
-          {trip.placesToVisit && trip.placesToVisit.length > 0 && places && (
+          {checked.length > 0 && places && (
             <Box sx={{ mt: 2, mb: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.50', borderRadius: '0.75rem', p: 2, boxShadow: 1 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main', mb: 1 }}>{t(lang, 'placesToVisit')}</Typography>
               <Box component="ul" sx={{ pl: 3, mb: 0, fontSize: 16 }}>
-                {trip.placesToVisit.map(xid => {
+                {checked.map(xid => {
                   const found = places.find(p => String(p.xid) === String(xid));
                   return (
                     <li key={xid} style={{ marginBottom: 4 }}>
@@ -110,6 +123,34 @@ export default function TripDetail({ trip, checked, setChecked }: Props) {
           )}
         </Box>
         <Typography variant="h5" sx={{ mt: 2, mb: 2, fontWeight: 600, color: 'primary.dark', letterSpacing: 1 }}>{t(lang, 'interestingPlacesNearby')}</Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            mb: 2,
+            color: 'text.secondary',
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center'
+          }}
+        >
+          <span>{t(lang, 'selectionHint')}</span>
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minHeight: 20,
+              transition: 'opacity 0.25s ease',
+              opacity: saveStatus === 'idle' ? 0 : 1
+            }}
+          >
+            {saveStatus === 'saving' && <span>• {t(lang, 'saving')}</span>}
+            {saveStatus === 'saved' && (
+              <span style={{ color: '#4caf50', fontWeight: 600 }}>• {t(lang, 'saved')}</span>
+            )}
+          </Box>
+        </Typography>
         
         <Box sx={{ mt: 2, mb: 2 }}>
           <ToggleButtonGroup
@@ -213,7 +254,16 @@ export default function TripDetail({ trip, checked, setChecked }: Props) {
                               sx={{ color: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'text.primary' }}
                             />
                           }
-                          label={<Typography variant="subtitle1" sx={{ fontWeight: 600, color: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'text.primary' }}>{(p as any).name_translated ?? p.name_en ?? p.name ?? 'Unnamed'}</Typography>}
+                          label={
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'text.primary' }}>
+                                {(p as any).name_translated ?? p.name_en ?? p.name ?? 'Unnamed'}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                {t(lang, 'selectForPdf')}
+                              </Typography>
+                            </Box>
+                          }
                           sx={{ mb: 1 }}
                         />
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>

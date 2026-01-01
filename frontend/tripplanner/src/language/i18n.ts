@@ -40,7 +40,11 @@ const dictionaries: Record<LanguageCode, Dict> = {
     popularity: 'Popularity',
     wikipedia: 'Wikipedia',
     website: 'Website',
-    hours: 'Hours'
+    hours: 'Hours',
+    selectionHint: 'Tick places to add them to your list and PDF export.',
+    selectForPdf: 'Add to my places / PDF report',
+    saving: 'Saving…',
+    saved: 'Saved'
   },
   es: {
     plannedTrips: 'Viajes Planificados',
@@ -80,7 +84,11 @@ const dictionaries: Record<LanguageCode, Dict> = {
     popularity: 'Popularidad',
     wikipedia: 'Wikipedia',
     website: 'Sitio web',
-    hours: 'Horario'
+    hours: 'Horario',
+    selectionHint: 'Marca los lugares para sumarlos a tu lista y al PDF.',
+    selectForPdf: 'Añadir a mis lugares / al PDF',
+    saving: 'Guardando…',
+    saved: 'Guardado'
   },
   cs: {
     plannedTrips: 'Plánované Cesty',
@@ -120,7 +128,11 @@ const dictionaries: Record<LanguageCode, Dict> = {
     popularity: 'Popularita',
     wikipedia: 'Wikipedia',
     website: 'Web',
-    hours: 'Otevírací doba'
+    hours: 'Otevírací doba',
+    selectionHint: 'Zaškrtni místa a hned je přidáme do seznamu i PDF.',
+    selectForPdf: 'Přidat do mých míst / PDF reportu',
+    saving: 'Ukládám…',
+    saved: 'Uloženo'
   }
 };
 

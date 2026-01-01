@@ -55,12 +55,12 @@ const AppShell = () => {
                 textTransform: 'none',
                 '&:hover': {
                   background: theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.12)'
+                    ? 'rgba(125,211,252,0.12)'
                     : 'rgba(0,0,0,0.06)'
                 },
                 '&:active': {
                   background: theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.18)'
+                    ? 'rgba(125,211,252,0.18)'
                     : 'rgba(0,0,0,0.1)'
                 },
                 '&:last-of-type': { borderRight: 'none' }
@@ -69,10 +69,10 @@ const AppShell = () => {
                 fontWeight: 700,
                 fontSize: 16,
                 background: theme.palette.mode === 'dark'
-                  ? 'linear-gradient(145deg, rgba(120,120,255,0.30), rgba(255,180,255,0.22))'
+                  ? 'linear-gradient(145deg, rgba(14,165,233,0.30), rgba(236,72,153,0.24))'
                   : 'linear-gradient(145deg, rgba(80,80,255,0.25), rgba(255,140,255,0.22))',
                 boxShadow: theme.palette.mode === 'dark'
-                  ? 'inset 0 0 0 1px rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.45)'
+                  ? 'inset 0 0 0 1px rgba(125,211,252,0.35), 0 4px 10px rgba(0,0,0,0.55)'
                   : 'inset 0 0 0 1px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.14)',
                 color: theme.palette.mode === 'dark' ? '#fff' : '#111',
                 letterSpacing: '.5px'
@@ -106,15 +106,6 @@ const AppShell = () => {
                   startIcon={detailActions.exporting ? <CircularProgress size={18} /> : null}
                 >
                   {detailActions.exporting ? 'Exporting…' : 'Export PDF'}
-                </Button>
-                <Button
-                  onClick={detailActions.savePlaces}
-                  variant='contained'
-                  color='primary'
-                  disabled={!detailActions.hasSelection}
-                  sx={{ fontWeight: 600 }}
-                >
-                  {t(lang,'savePlacesToVisit')}
                 </Button>
               </>
             )}

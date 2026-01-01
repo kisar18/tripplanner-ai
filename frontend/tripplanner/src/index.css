@@ -1,6 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 body {
   margin: 0;
-  font-family: 'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif;
+  font-family: 'Space Grotesk','Inter','Segoe UI',system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
